@@ -4,50 +4,35 @@ import bcrypt from 'bcrypt';
 import nodemailer from 'nodemailer';
 import randomstring from 'randomstring';
 
-const router = Router();
+const r = Router();
 
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+r.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { n, e, p } = req.body;
     if (typeof n !== 'string' && typeof e !== 'string' && typeof p !== 'string')
-      return res.status(422).json({ m: 'Dados inválidos.' });
+      return res.status(422).json({ m: 'invalid data' });
     const con = getCon();
     const old = await con.user.findFirst({ where: { email: e } });
     if (old)
-      return res.status(400).json({ message: 'Endereço de e-mail já cadastrado.' });
+      return res.status(400).json({ message: 'e-mail address already registered' });
     const h = bcrypt.hashSync(p, 10);
-    const u = await con.user.create({
-      data: {
-        name: n,
-        email: e,
-        password: h,
-      },
-    });
-    const { EHOST, EHOSTPORT, EUSER, EPASS } = process.env;
+    const u = await con.user.create({ data: { name: n, email: e, password: h } });
+    const { EHOST, EHOSTPORT, EUSER, EPASS, EFROM } = process.env;
     const t = nodemailer.createTransport({
-      host: EHOST,
-      port: EHOSTPORT,
-      secure: false,
-      auth: {
-        user: EUSER,
-        pass: EPASS,
-      },
+      host: EHOST, port: EHOSTPORT, secure: false,
+      auth: { user: EUSER, pass: EPASS, },
     } as any);
     const mf1 = await t.sendMail({
-      from: 'hermerson@allugator.com',
-      to: u.email,
-      subject: 'Welcome',
-      text: `Welcome ${u.name}.`,
-      html: `<p> Welcome ${u.name} </p>`,
+      from: EFROM, to: u.email, subject: 'Welcome',
+      text: `Welcome ${u.name}.`, html: `<p> Welcome ${u.name} </p>`,
     });
     const cod = randomstring.generate({ length: 5 });
+    console.log(mf1);
     const mf2 = await t.sendMail({
-      from: 'hermerson@allugator.com',
-      to: u.email,
-      subject: 'Confirm Registration',
-      text: `Hello ${u.name}! This is your code ${cod}.`,
-      html: `<p> Hello ${u.name}! This is your code ${cod}. </p>`,
+      from: EFROM, to: u.email, subject: 'Confirm your registration',
+      text: `Hello ${u.name}! This is your code ${cod}.`, html: `<p> Hello ${u.name}! This is your code ${cod}. </p>`,
     });
+    console.log(mf2);
     return res.status(201).json({ user: u });
   } catch (e: any) {
     console.error(e.stack);
@@ -56,6 +41,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 
-export default router;
+export default r;
 
 

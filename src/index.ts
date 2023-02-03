@@ -11,7 +11,7 @@ import getCon from './getCon';
 
     app.use(express.json());
 
-    app.use('/users', router);
+    app.use(router);
 
     app.listen(3000, () => {
       console.log('Server is running.');
