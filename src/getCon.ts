@@ -7,5 +7,7 @@ export default function getCon() {
     return con;
   }
 
-  return new PrismaClient();
+  con = new PrismaClient();
+
+  return con;
 }
