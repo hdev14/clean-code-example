@@ -6,17 +6,16 @@ import randomstring from 'randomstring';
 
 const r = Router();
 
-r.post('/', async (req: Request, res: Response, next: NextFunction) => {
+r.post('/', async (req: Request, res: Response, n: NextFunction) => {
   try {
-    const { n, e, p } = req.body;
-    if (typeof n !== 'string' && typeof e !== 'string' && typeof p !== 'string')
-      return res.status(422).json({ m: 'invalid data' });
+    if (typeof req.body.name !== 'string' && typeof req.body.email !== 'string' && typeof req.body.password !== 'string')
+      return res.status(422).json({ message: 'invalid data' });
     const con = getCon();
-    const old = await con.user.findFirst({ where: { email: e } });
+    const old = await con.user.findFirst({ where: { email: req.body.email } });
     if (old)
       return res.status(400).json({ message: 'e-mail address already registered' });
-    const h = bcrypt.hashSync(p, 10);
-    const u = await con.user.create({ data: { name: n, email: e, password: h } });
+    const h = bcrypt.hashSync(req.body.password, 10);
+    const u = await con.user.create({ data: { name: req.body.name, email: req.body.email, password: h } });
     const { EHOST, EHOSTPORT, EUSER, EPASS, EFROM } = process.env;
     const t = nodemailer.createTransport({
       host: EHOST, port: EHOSTPORT, secure: false,
@@ -33,10 +32,10 @@ r.post('/', async (req: Request, res: Response, next: NextFunction) => {
       text: `Hello ${u.name}! This is your code ${cod}.`, html: `<p> Hello ${u.name}! This is your code ${cod}. </p>`,
     });
     console.log(mf2);
-    return res.status(201).json({ user: u });
+    return res.status(201).json(u);
   } catch (e: any) {
     console.error(e.stack);
-    return next(e);
+    return n(e);
   }
 });
 
