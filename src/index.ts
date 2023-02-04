@@ -1,9 +1,12 @@
 import dotenv from 'dotenv';
 import express from 'express';
+
+dotenv.config();
+
 import router from './router';
 import getCon from './getCon';
 
-dotenv.config();
+
 
 (async () => {
   let con = getCon();
@@ -21,6 +24,6 @@ dotenv.config();
   } catch (e) {
     await con?.$disconnect();
   }
-});
+})();
 
 

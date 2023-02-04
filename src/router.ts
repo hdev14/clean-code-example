@@ -10,6 +10,8 @@ r.post('/', async (req: Request, res: Response, n: NextFunction) => {
   try {
     if (typeof req.body.name !== 'string' && typeof req.body.email !== 'string' && typeof req.body.password !== 'string')
       return res.status(422).json({ message: 'invalid data' });
+    if (/^[a-z0-9.]+@[a-z0-9]+\.[a-z]+\.([a-z]+)?$/i.test(req.body.email)) return res.status(400).json({ message: 'Invalid e-mail address.' });
+    if (req.body.password.length < 6) return res.status(400).json({ message: 'Password must have more than 6 caracters' });
     const con = getCon();
     const old = await con.user.findFirst({ where: { email: req.body.email } });
     if (old)
