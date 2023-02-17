@@ -1,47 +1,175 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import getCon from './getCon';
+import getDBConnection from './getDBConnection';
 import bcrypt from 'bcrypt';
 import nodemailer from 'nodemailer';
 import randomstring from 'randomstring';
+import nodemailerTransport from './nodemailerTransport';
 
-const r = Router();
+const router = Router();
+const connection = getDBConnection();
 
-r.post('/', async (req: Request, res: Response, n: NextFunction) => {
+const EMAIL_REGEX = /^[a-z0-9.]+@[a-z0-9]+\.[a-z]+\.([a-z]+)?$/i;
+
+enum HttpStatusCodes {
+  ENTITY_UNPROCCESS = 422,
+  BAD_REQUEST = 400,
+  CREATED = 201,
+}
+
+type UserData = {
+  name: string;
+  email: string;
+  password: string;
+}
+
+function validateUserData(data: UserData) {
+  if (typeof data.name !== 'string'
+    && typeof data.email !== 'string'
+    && typeof data.password !== 'string') {
+    return 'invalid data';
+  }
+
+  if (EMAIL_REGEX.test(data.email)) {
+    return 'Invalid e-mail address.';
+  }
+
+  if (data.password.length < 6) {
+    return 'Password must have more than 6 caracters';
+  }
+}
+
+async function userExist(email: string) {
+  const isUserExist = await connection.user.findFirst({
+    where: { email: email }
+  });
+
+  return isUserExist;
+}
+
+
+async function sendWelcomeEmail(email: string, name: string) {
+  const welcomeMessageResult = await nodemailerTransport.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: 'Welcome',
+    text: `Welcome ${name}.`,
+    html: `<p> Welcome ${name} </p>`,
+  });
+
+  console.log(welcomeMessageResult);
+}
+
+async function sendConfirmRegistrationEmail(email: string, name: string) {
+  const registrationCode = randomstring.generate({ length: 5 });
+
+  const registrationMessageResult = await nodemailerTransport.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: 'Confirm your registration',
+    text: `Hello ${name}! This is your code ${registrationCode}.`,
+    html: `<p> Hello ${name}! This is your code ${registrationCode}. </p>`,
+  });
+
+  console.log(registrationMessageResult);
+}
+
+/* Exemplo com class
+type EmailParams {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+}
+
+class EmailService {
+/   private readonly transport: any;
+
+   constructor() {
+     const {
+       EMAIL_HOST,
+       EMAIL_HOST_PORT,
+       EMAIL_USER,
+       EMAIL_PASSWORD,
+     } = process.env;
+
+      composition
+     this.transport = nodemailer.createTransport({
+       host: EMAIL_HOST,
+       port: EMAIL_HOST_PORT,
+       secure: false,
+       auth: { user: EMAIL_USER, pass: EMAIL_PASSWORD, },
+     } as any);
+   }
+
+   public async send(params: EmailParams) {
+     const messageResult = await this.transport.sendMail({
+       from: params.from,
+       to: params.to,
+       subject: params.subject,
+       html: params.html,
+     });
+
+     console.log(messageResult);
+   }
+ }
+*/
+
+router.post('/users', async (request: Request, response: Response, next: NextFunction) => {
   try {
-    if (typeof req.body.name !== 'string' && typeof req.body.email !== 'string' && typeof req.body.password !== 'string')
-      return res.status(422).json({ message: 'invalid data' });
-    if (/^[a-z0-9.]+@[a-z0-9]+\.[a-z]+\.([a-z]+)?$/i.test(req.body.email)) return res.status(400).json({ message: 'Invalid e-mail address.' });
-    if (req.body.password.length < 6) return res.status(400).json({ message: 'Password must have more than 6 caracters' });
-    const con = getCon();
-    const old = await con.user.findFirst({ where: { email: req.body.email } });
-    if (old)
-      return res.status(400).json({ message: 'e-mail address already registered' });
-    const h = bcrypt.hashSync(req.body.password, 10);
-    const u = await con.user.create({ data: { name: req.body.name, email: req.body.email, password: h } });
-    const { EHOST, EHOSTPORT, EUSER, EPASS, EFROM } = process.env;
-    const t = nodemailer.createTransport({
-      host: EHOST, port: EHOSTPORT, secure: false,
-      auth: { user: EUSER, pass: EPASS, },
-    } as any);
-    const mf1 = await t.sendMail({
-      from: EFROM, to: u.email, subject: 'Welcome',
-      text: `Welcome ${u.name}.`, html: `<p> Welcome ${u.name} </p>`,
+    const { name, email, password } = request.body;
+
+    const message = validateUserData({ name, email, password });
+
+    if (message) {
+      return response.status(HttpStatusCodes.ENTITY_UNPROCCESS).json({ message });
+    }
+
+    if (await userExist(email)) {
+      return response.status(HttpStatusCodes.BAD_REQUEST)
+        .json({ message: 'e-mail address already registered' });
+    }
+
+    const user = await connection.user.create({
+      data: {
+        name: name,
+        email: email,
+        password: bcrypt.hashSync(password, 10)
+      }
     });
-    const cod = randomstring.generate({ length: 5 });
-    console.log(mf1);
-    const mf2 = await t.sendMail({
-      from: EFROM, to: u.email, subject: 'Confirm your registration',
-      text: `Hello ${u.name}! This is your code ${cod}.`, html: `<p> Hello ${u.name}! This is your code ${cod}. </p>`,
-    });
-    console.log(mf2);
-    return res.status(201).json(u);
+    
+    await sendWelcomeEmail(user.email, user.name);
+
+    await sendConfirmRegistrationEmail(user.email, user.name);
+
+    /* Exemplo com class
+      const emailService = new EmailService();
+      
+      await emailService.send({
+        from: process.env.EMAIL_FROM!,
+        to: email,
+        subject: 'Welcome',
+        text: `Welcome ${name}.`,
+        html: `<p> Welcome ${name} </p>`,
+      });
+
+      const registrationCode = randomstring.generate({ length: 5 });
+
+      await emailService.send({
+        from: process.env.EMAIL_FROM!,
+        to: email,
+        subject: 'Confirm your registration',
+        html: `<p> Hello ${name}! This is your code ${registrationCode}. </p>`,
+      });
+     */
+
+    return response.status(HttpStatusCodes.CREATED).json(user);
   } catch (e: any) {
     console.error(e.stack);
-    return n(e);
+    return next(e);
   }
 });
 
 
-export default r;
+export default router;
 
 

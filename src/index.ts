@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 dotenv.config();
 import router from './router';
-import getCon from './getCon';
+import getCon from './getDBConnection';
 
 (async () => {
   let con = getCon();
