@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import getDBConnection from './getDBConnection';
 import bcrypt from 'bcrypt';
-import nodemailer from 'nodemailer';
 import randomstring from 'randomstring';
 import nodemailerTransport from './nodemailerTransport';
 
@@ -46,7 +45,6 @@ async function userExist(email: string) {
   return isUserExist;
 }
 
-
 async function sendWelcomeEmail(email: string, name: string) {
   const welcomeMessageResult = await nodemailerTransport.sendMail({
     from: process.env.EMAIL_FROM,
@@ -72,47 +70,6 @@ async function sendConfirmRegistrationEmail(email: string, name: string) {
 
   console.log(registrationMessageResult);
 }
-
-/* Exemplo com class
-type EmailParams {
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-}
-
-class EmailService {
-/   private readonly transport: any;
-
-   constructor() {
-     const {
-       EMAIL_HOST,
-       EMAIL_HOST_PORT,
-       EMAIL_USER,
-       EMAIL_PASSWORD,
-     } = process.env;
-
-     // composition
-     this.transport = nodemailer.createTransport({
-       host: EMAIL_HOST,
-       port: EMAIL_HOST_PORT,
-       secure: false,
-       auth: { user: EMAIL_USER, pass: EMAIL_PASSWORD, },
-     } as any);
-   }
-
-   public async send(params: EmailParams) {
-     const messageResult = await this.transport.sendMail({
-       from: params.from,
-       to: params.to,
-       subject: params.subject,
-       html: params.html,
-     });
-
-     console.log(messageResult);
-   }
- }
-*/
 
 router.post('/users', async (request: Request, response: Response, next: NextFunction) => {
   try {
@@ -140,27 +97,6 @@ router.post('/users', async (request: Request, response: Response, next: NextFun
     await sendWelcomeEmail(user.email, user.name);
 
     await sendConfirmRegistrationEmail(user.email, user.name);
-
-    /* Exemplo com class
-      const emailService = new EmailService();
-      
-      await emailService.send({
-        from: process.env.EMAIL_FROM!,
-        to: email,
-        subject: 'Welcome',
-        text: `Welcome ${name}.`,
-        html: `<p> Welcome ${name} </p>`,
-      });
-
-      const registrationCode = randomstring.generate({ length: 5 });
-
-      await emailService.send({
-        from: process.env.EMAIL_FROM!,
-        to: email,
-        subject: 'Confirm your registration',
-        html: `<p> Hello ${name}! This is your code ${registrationCode}. </p>`,
-      });
-     */
 
     return response.status(HttpStatusCodes.CREATED).json(user);
   } catch (e: any) {
