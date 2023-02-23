@@ -7,7 +7,7 @@ import nodemailerTransport from './nodemailerTransport';
 const router = Router();
 const connection = getDBConnection();
 
-const EMAIL_REGEX = /^[a-z0-9.]+@[a-z0-9]+\.[a-z]+\.([a-z]+)?$/i;
+const EMAIL_REGEX = new RegExp("^[a-z0-9.]+@[a-z0-9]+\.[a-z]+\.([a-z]+)?$", "i");
 
 enum HttpStatusCodes {
   ENTITY_UNPROCCESS = 422,
@@ -28,7 +28,7 @@ function validateUserData(data: UserData) {
     return 'invalid data';
   }
 
-  if (EMAIL_REGEX.test(data.email)) {
+  if (!EMAIL_REGEX.test(data.email)) {
     return 'Invalid e-mail address.';
   }
 
