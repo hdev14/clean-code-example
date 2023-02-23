@@ -2,10 +2,10 @@ import dotenv from 'dotenv';
 import express from 'express';
 dotenv.config();
 import router from './router';
-import getCon from './getDBConnection';
+import getDBConnection from './getDBConnection';
 
 (async () => {
-  let con = getCon();
+  let connection = getDBConnection();
   try {
     const app = express();
     app.use(express.json());
@@ -14,7 +14,7 @@ import getCon from './getDBConnection';
       console.log('Server is running.');
     });
   } catch (e) {
-    await con?.$disconnect();
+    await connection?.$disconnect();
   }
 })();
 
